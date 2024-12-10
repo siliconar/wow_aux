@@ -1,3 +1,8 @@
+## 库
+pillow
+OpenCV
+pyautogui
+
 
 ## 大致内容
 根据检测原理，首先每天钓鱼不能超过N小时。

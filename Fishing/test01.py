@@ -1,13 +1,21 @@
 import ctypes
-from win32gui import FindWindow
-from win32con import WM_LBUTTONDOWN, WM_LBUTTONUP
 
-# 获取窗口句柄
-hwnd = FindWindow(None, "微信")
+# 定义 Windows API 函数和常量
+SendMessage = ctypes.windll.user32.SendMessageW
+FindWindow = ctypes.windll.user32.FindWindowW
+WM_MOUSEMOVE = 0x0200
+WM_LBUTTONDOWN = 0x0201
+WM_LBUTTONUP = 0x0202
 
-# 模拟鼠标左键点击
-x, y = 155, 90  # 窗口内部坐标
-l_param = (y << 16) | x  # 将坐标打包成 lParam 格式
+def send_mouse_click(hwnd, x, y):
+    lParam = y << 16 | x
+    SendMessage(hwnd, WM_MOUSEMOVE, 0, lParam)  # 鼠标移动
+    SendMessage(hwnd, WM_LBUTTONDOWN, 1, lParam)  # 鼠标按下
+    SendMessage(hwnd, WM_LBUTTONUP, 0, lParam)  # 鼠标松开
 
-ctypes.windll.user32.SendMessageW(hwnd, WM_LBUTTONDOWN, 0, l_param)  # 按下
-ctypes.windll.user32.SendMessageW(hwnd, WM_LBUTTONUP, 0, l_param)    # 松开
+# 查找窗口
+hwnd = FindWindow(None, "魔兽世界")
+if hwnd:
+    send_mouse_click(hwnd, 373,983)  #注意这个坐标没有标题栏
+else:
+    print("未找到窗口")
