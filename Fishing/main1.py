@@ -32,7 +32,7 @@ presser1 = WindowKeyPresser("魔兽世界",window_1)  # 替换为实际窗口标
 
 # 初始化TemplateMatcher， 图像识别器
 matcher1 = TemplateMatcher()
-matcher1.load_templates("template_4.png") #加载模板
+# matcher1.load_templates("template_4.png") #加载模板
 #定义截屏区域并保存至指定目录
 startx, starty = 521, 25
 endx,endy = 1517, 791
@@ -40,12 +40,12 @@ region_to_capture1 = (startx,starty,endx-startx, endy-starty )  # 定义屏幕�
 
 
 
-##正式开始
+##--- 正式开始
 
 time.sleep(3)
 
 
-for kkk in range(30):
+for kkk in range(10):
     print("第"+str(kkk)+"次钓鱼")
 
     # 随机暂停1到3秒
@@ -72,15 +72,22 @@ for kkk in range(30):
     #     print("未找到中心")
     #     exit()
     # 通过前后帧比较
-    center1 = matcher1.find_largest_changed_region(captured_frames, 'save111.png', True)
+    center1 = matcher1.find_largest_changed_region(captured_frames, 'save111.png', False)
     time.sleep(1)
 
-    # bias_x = 377  - 354
-    bias_x=  482-467
-    bias_y = 0
-    center2 = (center1[0]+bias_x, center1[1]+bias_y)
 
-    # 判断是否中鱼
+    ##-- 判断是否中鱼
+
+    #鱼漂截图范围
+    fishbot_x = center1[0]
+    fishbot_y = center1[1]
+    fishbot_w = 61
+    fishbot_h = 69
+
+    # 设立鱼漂基准切片
+    tmp_img = captured_frames[1]
+    img1_cut = tmp_img[fishbot_y:fishbot_y+fishbot_h, fishbot_x:fishbot_x+fishbot_w, :]  # 这里注意，因为是numpy，所以xy一定交换位置
+
     # 设置循环开始时间
     start_time = time.time()
 
@@ -89,13 +96,19 @@ for kkk in range(30):
         current_time = time.time()
 
         # 判断是否超过30秒
-        if current_time - start_time >= 30:
+        if current_time - start_time >= 25:
             print("超过30秒，退出循环")
             break
 
         # 执行循环内容
         frames = matcher1.capture_screen_area(region_to_capture1, 1)
-        bgotfish = matcher1.is_got_fish(frames[0],center2)
+
+        # 设立当前鱼漂切片
+        tmp_img = frames[0]
+        img2_cut = tmp_img[fishbot_y:fishbot_y+fishbot_h, fishbot_x:fishbot_x+fishbot_w, :]  # 这里注意，因为是numpy，所以xy一定交换位置
+
+
+        bgotfish = matcher1.is_got_fish(img1_cut,img2_cut,False)
         #如果中鱼了
         if bgotfish == True:
             # 换算真实地址

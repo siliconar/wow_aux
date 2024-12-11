@@ -106,8 +106,8 @@ class TemplateMatcher:
         diff = cv2.absdiff(gray_frame1, gray_frame2)
 
         # 二值化处理突出差异区域
-        _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
-
+        # _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(diff, 50, 255, cv2.THRESH_BINARY)
         # 寻找所有的轮廓
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -137,19 +137,27 @@ class TemplateMatcher:
         return center_x, center_y
 
     #检查是否中鱼
-    def is_got_fish(self, frame: np.ndarray, center: tuple) -> bool:
-        """
-        检测给定帧中指定位置是否接近白色。
-        :param frame: 输入帧（彩色图像）。
-        :param center: 需要检测的中心位置 (x, y)。
-        :return: 如果指定位置接近白色，返回 True；否则返回 False。
-        """
-        x, y = center
-        # 获取中心点的像素值（BGR 格式）
-        b, g, r = frame[y, x]
+    def is_got_fish(self, img1_cut: np.ndarray, img2_cut: np.ndarray, is_save:bool) -> bool:
 
-        # 判断是否接近白色（可以调整阈值）
-        if b > 190 and g > 190 and r > 190:  # 白色近似阈值
+        if is_save == True:  # 如果的确要保存
+            cv2.imwrite('bot.png', img2_cut)
+
+        # 白点判定的阈值
+        threshold = 150
+
+        # 判断白点（接近 [255, 255, 255]）
+        white_points_img1 = np.all(img1_cut >= threshold, axis=2)
+        white_points_img2 = np.all(img2_cut >= threshold, axis=2)
+
+        # 统计白点数量
+        white_count_img1 = np.sum(white_points_img1)  # 像素点数
+        white_count_img2 = np.sum(white_points_img2)
+        # 计算白点变化
+        white_diff = white_count_img2 - white_count_img1
+        # 判定是否出现大量白点
+        significant_increase = white_diff > 0.006 * img1_cut.shape[0] * img1_cut.shape[1]  # 假设变化超过1%为显著增加
+
+        if significant_increase:
             return True
         return False
 
