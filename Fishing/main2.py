@@ -47,7 +47,7 @@ actioner_Change1 = action_ChangePos(presser1)
 time.sleep(3)
 
 
-for kkk in range(20):
+for kkk in range(100):
 
     print("第"+str(kkk)+"次钓鱼")
 

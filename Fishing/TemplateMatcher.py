@@ -2,6 +2,10 @@ import cv2
 import numpy as np
 from PIL import Image
 import pyautogui
+import random
+import os
+from PIL import ImageGrab
+
 
 
 class TemplateMatcher:
@@ -10,6 +14,7 @@ class TemplateMatcher:
         初始化类，模板图片占位
         """
         self.template1 = None
+        self.cnt =0;
         # self.template2 = None
 
     def load_templates(self, template1_path: str):
@@ -34,7 +39,10 @@ class TemplateMatcher:
         frames = []
         for _ in range(n_frames):  # 如果老匹配不成功，也可以改这个，截取的图片少一些
             # 截取屏幕区域并转换为 NumPy 数组
-            screenshot = pyautogui.screenshot(region=(x, y, width, height))
+
+            bbox = (x, y, x+width, y+height)
+            screenshot = ImageGrab.grab(bbox=bbox,all_screens= True)
+            # screenshot = pyautogui.screenshot(region=(x, y, width, height))
             frame = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)  # 转换为 OpenCV 格式
             frames.append(frame)
         return frames
@@ -89,11 +97,59 @@ class TemplateMatcher:
             print("未找到一致的匹配位置，可能存在误差或模板未在所有帧中出现")
             return None
 
-    def find_largest_changed_region(self, frames: list, save_path: str, is_save:bool) -> tuple:
+    # def find_largest_changed_region(self, frames: list, save_path: str, is_save:bool) -> tuple:
+    #     """
+    #     找到两张图像中变化的区域，并返回变化区域中面积最大的连续区域的中心点。
+    #     :param frames: 包含两张图像的列表，顺序为 [第一张图像, 第二张图像]
+    #     :return: 面积最大的变化区域的中心点 (x, y)
+    #     """
+    #     if len(frames) != 2:
+    #         raise ValueError("frames 列表必须包含两张图像")
+    #
+    #     # 转换为灰度图像
+    #     gray_frame1 = cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY)
+    #     gray_frame2 = cv2.cvtColor(frames[1], cv2.COLOR_BGR2GRAY)
+    #
+    #     # 计算两张图像的绝对差异
+    #     diff = cv2.absdiff(gray_frame1, gray_frame2)
+    #
+    #     # 二值化处理突出差异区域
+    #     # _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
+    #     _, thresh = cv2.threshold(diff, 50, 255, cv2.THRESH_BINARY)
+    #     # 寻找所有的轮廓
+    #     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #
+    #     if not contours:
+    #         raise ValueError("未检测到变化区域")
+    #
+    #     # 找到面积最大的轮廓
+    #     max_contour = max(contours, key=cv2.contourArea)
+    #
+    #     # 计算最大区域的中心
+    #     M = cv2.moments(max_contour)
+    #     if M["m00"] == 0:
+    #         raise ValueError("无法计算最大区域的中心")
+    #     center_x = int(M["m10"] / M["m00"])
+    #     center_y = int(M["m01"] / M["m00"])
+    #     center = (center_x,center_y)
+    #     if is_save == True:  # 如果的确要保存
+    #         # 在其中一张图片上绘制标记
+    #         marked_frame = frames[1].copy()
+    #         cv2.circle(marked_frame, center, radius=10, color=(0, 255, 0), thickness=2)
+    #
+    #         # 保存标记结果
+    #         cv2.imwrite(save_path, marked_frame)
+    #         print(f"标记结果已保存至: {save_path}")
+    #
+    #
+    #     return center_x, center_y
+    def find_largest_changed_region(self, frames: list, save_path: str, is_save: bool) -> list:
         """
-        找到两张图像中变化的区域，并返回变化区域中面积最大的连续区域的中心点。
+        找到两张图像中变化的区域，并返回变化区域中面积最大的 5 个连续区域的中心点。
         :param frames: 包含两张图像的列表，顺序为 [第一张图像, 第二张图像]
-        :return: 面积最大的变化区域的中心点 (x, y)
+        :param save_path: 保存标记结果的图片路径
+        :param is_save: 是否保存标记结果
+        :return: 面积最大的 5 个变化区域的中心点列表 [(x1, y1), (x2, y2), ...]
         """
         if len(frames) != 2:
             raise ValueError("frames 列表必须包含两张图像")
@@ -106,35 +162,42 @@ class TemplateMatcher:
         diff = cv2.absdiff(gray_frame1, gray_frame2)
 
         # 二值化处理突出差异区域
-        # _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
         _, thresh = cv2.threshold(diff, 50, 255, cv2.THRESH_BINARY)
+
         # 寻找所有的轮廓
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         if not contours:
             raise ValueError("未检测到变化区域")
 
-        # 找到面积最大的轮廓
-        max_contour = max(contours, key=cv2.contourArea)
+        # 按轮廓面积从大到小排序
+        sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
-        # 计算最大区域的中心
-        M = cv2.moments(max_contour)
-        if M["m00"] == 0:
-            raise ValueError("无法计算最大区域的中心")
-        center_x = int(M["m10"] / M["m00"])
-        center_y = int(M["m01"] / M["m00"])
-        center = (center_x,center_y)
-        if is_save == True:  # 如果的确要保存
+        # 提取前 5 个最大的轮廓
+        top_contours = sorted_contours[:2]
+
+        centers = []
+        for contour in top_contours:
+            M = cv2.moments(contour)
+            if M["m00"] != 0:  # 防止除以 0
+                center_x = int(M["m10"] / M["m00"])
+                center_y = int(M["m01"] / M["m00"])
+                centers.append((center_x, center_y))
+
+        if is_save:  # 如果需要保存
             # 在其中一张图片上绘制标记
             marked_frame = frames[1].copy()
-            cv2.circle(marked_frame, center, radius=10, color=(0, 255, 0), thickness=2)
+            for center in centers:
+                cv2.circle(marked_frame, center, radius=10, color=(0, 255, 0), thickness=2)
 
             # 保存标记结果
+            name, ext = os.path.splitext(save_path)
+            save_path = name + str(self.cnt)+ext;
+            self.cnt= self.cnt+1;
             cv2.imwrite(save_path, marked_frame)
             print(f"标记结果已保存至: {save_path}")
 
-
-        return center_x, center_y
+        return centers
 
     #检查是否中鱼
     def is_got_fish(self, img1_cut: np.ndarray, img2_cut: np.ndarray, is_save:bool) -> bool:
@@ -160,6 +223,40 @@ class TemplateMatcher:
         if significant_increase:
             return True
         return False
+
+    def ransac_find_x0_y0(self, tuples, threshold=1.0, iterations=100):
+        best_x0, best_y0 = None, None
+        max_inliers = 0
+        best_inliers = []
+
+        # Flatten all points from the tuples for RANSAC sampling
+        all_points = [point for t in tuples for point in t]
+
+        for _ in range(iterations):
+            # Randomly select a point as the hypothesis
+            x0, y0 = random.choice(all_points)
+
+            # Calculate inliers: points within the threshold distance
+            inliers = []
+            for t in tuples:
+                for point in t:
+                    distance = np.sqrt((point[0] - x0) ** 2 + (point[1] - y0) ** 2)
+                    if distance < threshold:
+                        inliers.append(point)
+
+            # Update best hypothesis if current inliers are the most
+            if len(inliers) > max_inliers:
+                max_inliers = len(inliers)
+                best_x0, best_y0 = x0, y0
+                best_inliers = inliers
+
+        # Find the closest point to the best_x0, best_y0 in each tuple
+        closest_points = []
+        for t in tuples:
+            closest_point = min(t, key=lambda p: np.sqrt((p[0] - best_x0) ** 2 + (p[1] - best_y0) ** 2))
+            closest_points.append(closest_point)
+
+        return best_x0, best_y0
 
 # # 使用示例
 # if __name__ == "__main__":

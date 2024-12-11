@@ -23,8 +23,10 @@ class action_FishOnce:
 
     def init(self):
         # 定义截屏区域并保存至指定目录
-        startx, starty = 521, 25
-        endx, endy = 1517, 791
+        # startx, starty = 521, 25
+        # endx, endy = 1517, 791
+        startx, starty = 1920+521, 25
+        endx, endy = 1920+1517, 791
         self.region_to_capture1 = (startx, starty, endx - startx, endy - starty)  # 定义屏幕区域
         self.startx = startx
         self.starty = starty
@@ -32,6 +34,7 @@ class action_FishOnce:
     def FishOnce(self):
         # 开始掉一次鱼
         # 建立前后两帧存储器
+        ransac_center_tuples = []  # 用于存储变化点的tuple
         captured_frames = [];
 
         # 先截取抛竿前的一帧
@@ -41,13 +44,23 @@ class action_FishOnce:
         # 抛出一杆
         self.presser1.send_key("1")  # 抛出一杆
         time.sleep(2)
-        # 截取抛竿后的一帧
-        frames = self.matcher1.capture_screen_area(self.region_to_capture1, 1)
-        captured_frames.append(frames[0])
 
-        # 通过前后帧比较,确定鱼漂位置
-        center1 = self.matcher1.find_largest_changed_region(captured_frames, 'save111.png', True)
-        time.sleep(1)
+
+        for kb in range(5):
+            # 截取抛竿后的一帧
+            frames = self.matcher1.capture_screen_area(self.region_to_capture1, 1)
+            if len(captured_frames)==1:  #如果只有1张图，也就是第一次进循环
+                captured_frames.append(frames[0])
+            else:
+                captured_frames[1] = frames[0]
+            # 通过前后帧比较,确定鱼漂位置
+            center_5 = self.matcher1.find_largest_changed_region(captured_frames, 'save111.png', True)
+            ransac_center_tuples.append(center_5) #记录center
+            time.sleep(0.2)
+
+        # 进行ransac选出最终点
+        best_x0, best_y0 = self.matcher1.ransac_find_x0_y0(ransac_center_tuples, threshold=3, iterations=1000)
+        center1 = [best_x0, best_y0]
 
         ##-- 判断是否中鱼
 
@@ -84,7 +97,12 @@ class action_FishOnce:
             # 如果中鱼了
             if bgotfish == True:
                 # 换算真实地址
-                real_x = self.startx + center1[0];
-                real_y = self.starty + center1[1];
+                # real_x = self.startx + center1[0];
+                # real_y = self.starty + center1[1];
+                real_x = self.startx + center1[0]-1920 ; # 坐标是相对于窗口的，不加1920
+                real_y = self.starty + center1[1]; # 坐标是相对于窗口的，不加1920
+
+                print(str(real_x) + "-" + str(real_y))
+
                 self.mouse1.send_mouse_click_right(real_x, real_y)
                 break;
