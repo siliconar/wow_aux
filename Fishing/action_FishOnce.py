@@ -23,10 +23,10 @@ class action_FishOnce:
 
     def init(self):
         # 定义截屏区域并保存至指定目录
-        # startx, starty = 521, 25
-        # endx, endy = 1517, 791
-        startx, starty = 1920+521, 25
-        endx, endy = 1920+1517, 791
+        startx, starty = 521, 25
+        endx, endy = 1517, 791
+        # startx, starty = 1920+521, 25
+        # endx, endy = 1920+1517, 791
         self.region_to_capture1 = (startx, starty, endx - startx, endy - starty)  # 定义屏幕区域
         self.startx = startx
         self.starty = starty
